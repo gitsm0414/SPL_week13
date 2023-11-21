@@ -29,6 +29,8 @@ enum ExitCode {
   EXIT_CODE_INVALID_PORT_NUMBER,
   EXIT_CODE_GETADDRINFO_FAILURE,
   EXIT_CODE_SERVER_DOWN,
+  EXIT_CODE_USERNAME_READ_FAILURE,
+  EXIT_CODE_USERNAME_WRITE_FAILURE,
   // feel free to add more
 };
 
@@ -61,7 +63,7 @@ void exit_handler(void) {
   close(conn_fd);
 }
 
-void handle_input(int conn_fd) {
+void handle_input(int conn_fd, char* username) {
   char buf[MAXLINE];
   ssize_t bytes_read;
 
@@ -73,7 +75,13 @@ void handle_input(int conn_fd) {
       case 0:
         return;
       default:
-        SAFELY_RUN(write(conn_fd, buf, bytes_read), EXIT_CODE_WRITE_FAILURE)
+	buf[bytes_read] = '\0';
+	if(strcmp(buf, "quit\n")==0){
+		sprintf(buf, "%s has left the chat.\n", username);
+		SAFELY_RUN(write(conn_fd, buf, MAXLINE), EXIT_CODE_WRITE_FAILURE)
+	}else{
+		SAFELY_RUN(write(conn_fd, buf, bytes_read), EXIT_CODE_WRITE_FAILURE)
+	}
         if (bytes_read < MAXLINE)
           return;
         break;
@@ -122,6 +130,16 @@ int main(int argc, char* argv[]) {
   // TODO: Remember that the server should notify each client
   //       when a new user joins the chat room.
   //       This can be done in the client or the server
+  char buf[MAXLINE];
+  char username[MAX_USERNAME];
+  ssize_t bytes_read;
+  
+  printf("Enter your name: ");
+  SAFELY_RUN((bytes_read = read(STDIN_FILENO, username, MAX_USERNAME)), EXIT_CODE_USERNAME_READ_FAILURE)
+  username[bytes_read-1] = '\0';
+  sprintf(buf, "%s has joined the chat.\n", username);
+
+  SAFELY_RUN(write(conn_fd, buf, MAXLINE), EXIT_CODE_USERNAME_WRITE_FAILURE)
 
   fd_set readset, copyset;
   FD_ZERO(&readset);  // initialize socket set
@@ -139,7 +157,7 @@ int main(int argc, char* argv[]) {
 
     // TODO: If the user entered something, send it to the server
     if (FD_ISSET(STDIN_FILENO, &copyset)) {
-      handle_input(conn_fd);
+      handle_input(conn_fd, username);
     }
 
     // TODO: If the server sent something, print it

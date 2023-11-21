@@ -76,11 +76,16 @@ void handle_client_data(int i, fd_set* readset, int fdmax) {
   if ((n = read(i, buf, MAXLINE)) > 0) {
     printf("got %zd bytes from client.\n", n);
     // TODO: Send data to each client
-    if ((write(i, buf, n) < 0) && (errno != EPIPE)) {
-      perror("write");
-      exit(EXIT_CODE_WRITE_FAILURE);
+    for(int j = 0; j<fdmax+1; j++){
+    	if(FD_ISSET(j, readset)){
+		if(j==i || j==listenfd) {
+			continue;
+		}
+		else{
+			SAFELY_RUN(write(i, buf, n), EXIT_CODE_WRITE_FAILURE)
+		}			
+	}
     }
-    SAFELY_RUN(write(i, buf, n), EXIT_CODE_WRITE_FAILURE)
   } else if (n == 0 || errno == ECONNRESET) {
     // Client terminated, so the server does not need
     // to monitor the associated socket anymore
