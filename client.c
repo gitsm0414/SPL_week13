@@ -75,10 +75,8 @@ void handle_input(int conn_fd, char* username) {
       case 0:
         return;
       default:
-	buf[bytes_read] = '\0';
-	if(strcmp(buf, "quit\n")==0){
-		sprintf(buf, "%s has left the chat.\n", username);
-		SAFELY_RUN(write(conn_fd, buf, MAXLINE), EXIT_CODE_WRITE_FAILURE)
+	if(strncmp(buf, "quit\n", 5)==0){
+		exit(EXIT_CODE_SUCCESS);	
 	}else{
 		SAFELY_RUN(write(conn_fd, buf, bytes_read), EXIT_CODE_WRITE_FAILURE)
 	}
@@ -135,6 +133,7 @@ int main(int argc, char* argv[]) {
   ssize_t bytes_read;
   
   printf("Enter your name: ");
+  fflush(stdout);
   SAFELY_RUN((bytes_read = read(STDIN_FILENO, username, MAX_USERNAME)), EXIT_CODE_USERNAME_READ_FAILURE)
   username[bytes_read-1] = '\0';
   sprintf(buf, "%s has joined the chat.\n", username);
