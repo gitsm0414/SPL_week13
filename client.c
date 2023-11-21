@@ -128,7 +128,6 @@ int main(int argc, char* argv[]) {
   // TODO: Remember that the server should notify each client
   //       when a new user joins the chat room.
   //       This can be done in the client or the server
-  char buf[MAXLINE];
   char username[MAX_USERNAME];
   ssize_t bytes_read;
   
@@ -136,9 +135,8 @@ int main(int argc, char* argv[]) {
   fflush(stdout);
   SAFELY_RUN((bytes_read = read(STDIN_FILENO, username, MAX_USERNAME)), EXIT_CODE_USERNAME_READ_FAILURE)
   username[bytes_read-1] = '\0';
-  sprintf(buf, "%s has joined the chat.\n", username);
-
-  SAFELY_RUN(write(conn_fd, buf, MAXLINE), EXIT_CODE_USERNAME_WRITE_FAILURE)
+ 
+  SAFELY_RUN(write(conn_fd, username, MAX_USERNAME), EXIT_CODE_USERNAME_WRITE_FAILURE)
 
   fd_set readset, copyset;
   FD_ZERO(&readset);  // initialize socket set

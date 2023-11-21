@@ -14,6 +14,8 @@
 #include <unistd.h>
 
 #define MAXLINE 80
+#define MAXNAME 20
+#define MAXCLIENTS 1024
 #define LISTEN_BACKLOG 5
 
 #ifdef __GNUC__
@@ -39,9 +41,19 @@ enum ExitCode {
   EXIT_CODE_ACCEPT_FAILURE,
   EXIT_CODE_BIND_FAILURE,
   EXIT_CODE_LISTEN_FAILURE,
+  EXIT_CODE_USERNAME_READ_FAILURE
 };
 
+typedef struct{
+	int fd;
+	char name[MAXNAME];
+} client_t;
+
 int listenfd;
+
+int cur_clients;
+
+client_t clients[MAXCLIENTS];
 
 // TODO: You can add enums and structures here if you'd like
 
@@ -66,15 +78,46 @@ void handle_new_connection(fd_set* readset, int* fdmax) {
   FD_SET(conn_fd, readset);
   if (*fdmax < conn_fd)
     *fdmax = conn_fd;
+
+  char username[MAXNAME];
+  ssize_t bytes_read;
+  do{
+	  bytes_read = read(conn_fd, username, MAXNAME);
+  	  if(bytes_read>1) break;
+  }while(1);
+  for(int i=0; i<MAXCLIENTS; i++){
+  	if(clients[i].fd == 0){
+		clients[i].fd = conn_fd;
+		strcpy(clients[i].name, username);
+		cur_clients++;
+		break;
+	}
+  }
+  char line[MAXLINE];
+  sprintf(line, "%s has joined the chat.\n", username);
+  for(int j=0; j<*fdmax+1; j++){
+	  if(FD_ISSET(j, readset)){
+		  if(j!=listenfd){
+			  SAFELY_RUN(write(j, line, MAXLINE), EXIT_CODE_WRITE_FAILURE)
+		  }
+	  }
+  }
 }
 
 // TODO: Should send the message to every client
 void handle_client_data(int i, fd_set* readset, int fdmax) {
   char buf[MAXLINE];
+  char username[MAXNAME];
   ssize_t n;
 
   if ((n = read(i, buf, MAXLINE)) > 0) {
-    printf("got %zd bytes from client.\n", n);
+    for(int j=0; j<MAXCLIENTS; j++){
+	    if(clients[j].fd == i){
+		    printf("got %zd bytes from %s.\n", n, clients[j].name);
+		    break;
+	    }
+    }
+
     // TODO: Send data to each client
     for(int j = 0; j<fdmax+1; j++){
     	if(FD_ISSET(j, readset)){
@@ -82,7 +125,7 @@ void handle_client_data(int i, fd_set* readset, int fdmax) {
 			continue;
 		}
 		else{
-			SAFELY_RUN(write(i, buf, n), EXIT_CODE_WRITE_FAILURE)
+			SAFELY_RUN(write(j, buf, n), EXIT_CODE_WRITE_FAILURE)
 		}			
 	}
     }
@@ -91,6 +134,27 @@ void handle_client_data(int i, fd_set* readset, int fdmax) {
     // to monitor the associated socket anymore
     FD_CLR(i, readset);
     close(i);
+    int idx;
+    for(int j=0; j<MAXCLIENTS; j++){
+	    if(clients[j].fd == i){
+		    clients[j].fd = 0;
+		    memset(clients[j].name, 0, MAXNAME);
+		    cur_clients--;
+		    idx=j;
+		    break;
+	    }
+    }
+    sprintf(buf, "%s has left the chat.\n", clients[idx].name);
+    for(int j=0; j<fdmax+1; j++){
+	    if(FD_ISSET(j, readset)){
+		    if(j!=listenfd){
+			    SAFELY_RUN(write(j, buf, MAXLINE), EXIT_CODE_WRITE_FAILURE)
+		    }
+	    }
+    }
+    printf("%s", buf);
+    fflush(stdout);
+
   } else {
     perror("read");
     exit(EXIT_CODE_READ_FAILURE);
@@ -110,6 +174,8 @@ int main(int argc, char* argv[]) {
   int fdmax = listenfd, fdnum;
   // fdmax = monitored fd with the largest value, fdnum = the number of fds that
   // are ready to be read
+
+  cur_clients = 0;
 
   while (1) {
     copyset = readset;
