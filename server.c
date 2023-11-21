@@ -102,6 +102,10 @@ void handle_new_connection(fd_set* readset, int* fdmax) {
 		  }
 	  }
   }
+  printf("%s", line);
+  fflush(stdout);
+  printf("%d active users\n", cur_clients);
+  fflush(stdout);
 }
 
 // TODO: Should send the message to every client
@@ -134,26 +138,30 @@ void handle_client_data(int i, fd_set* readset, int fdmax) {
     // to monitor the associated socket anymore
     FD_CLR(i, readset);
     close(i);
-    int idx;
+    
     for(int j=0; j<MAXCLIENTS; j++){
 	    if(clients[j].fd == i){
+		    sprintf(buf, "%s has left the chat.\n", clients[j].name);
+    		    for(int j=0; j<fdmax+1; j++){
+	    		if(FD_ISSET(j, readset)){
+		    		if(j!=listenfd){
+			    		SAFELY_RUN(write(j, buf, MAXLINE), EXIT_CODE_WRITE_FAILURE)
+		    		}
+	    		}
+    		    }
+    		    printf("%s", buf);
+    		    fflush(stdout);
+
 		    clients[j].fd = 0;
 		    memset(clients[j].name, 0, MAXNAME);
 		    cur_clients--;
-		    idx=j;
+		    
+		    printf("%d active users\n", cur_clients);
+		    fflush(stdout);
 		    break;
 	    }
     }
-    sprintf(buf, "%s has left the chat.\n", clients[idx].name);
-    for(int j=0; j<fdmax+1; j++){
-	    if(FD_ISSET(j, readset)){
-		    if(j!=listenfd){
-			    SAFELY_RUN(write(j, buf, MAXLINE), EXIT_CODE_WRITE_FAILURE)
-		    }
-	    }
-    }
-    printf("%s", buf);
-    fflush(stdout);
+    
 
   } else {
     perror("read");
