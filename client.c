@@ -80,8 +80,8 @@ void handle_input(int conn_fd, char* username) {
 	}else{
 		SAFELY_RUN(write(conn_fd, buf, bytes_read), EXIT_CODE_WRITE_FAILURE)
 	}
-        //if (bytes_read < MAXLINE)
-        //  return;
+        if (bytes_read < MAXLINE)
+          return;
         break;
     }
   }
@@ -89,7 +89,7 @@ void handle_input(int conn_fd, char* username) {
 
 void handle_server_response(int conn_fd) {
   char buf[MAXLINE];
-  ssize_t bytes_read;
+  ssize_t bytes_read=0;
 
   switch (read(conn_fd, buf, MAXLINE)) {
     case -1:
@@ -100,8 +100,8 @@ void handle_server_response(int conn_fd) {
       exit(EXIT_CODE_SERVER_DOWN);
     default:
       write(STDOUT_FILENO, buf, bytes_read);
-      //if (bytes_read < MAXLINE)
-      //  return;
+      if (bytes_read < MAXLINE)
+        return;
       break;
   }
 }

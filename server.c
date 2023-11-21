@@ -129,7 +129,7 @@ void handle_client_data(int i, fd_set* readset, int fdmax) {
 			continue;
 		}
 		else{
-			SAFELY_RUN(write(j, buf, n), EXIT_CODE_WRITE_FAILURE)
+			SAFELY_RUN(write(j, buf, MAXLINE), EXIT_CODE_WRITE_FAILURE)
 		}			
 	}
     }
